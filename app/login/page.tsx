@@ -1,0 +1,148 @@
+"use client"
+
+import type React from "react"
+
+import { useState } from "react"
+import { useRouter } from "next/navigation"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Loader2, Bot } from "lucide-react"
+import Link from "next/link"
+import { ParticlesBackground } from "@/components/particles-background"
+import { ThemeToggle } from "@/components/theme-toggle"
+import { CursorGlow } from "@/components/cursor-glow"
+
+export default function LoginPage() {
+  const [username, setUsername] = useState("")
+  const [password, setPassword] = useState("")
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState("")
+  const router = useRouter()
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setLoading(true)
+    setError("")
+
+    try {
+      const response = await fetch("http://localhost:8000/login/", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ username, password }),
+      })
+
+      if (response.ok) {
+        localStorage.setItem("user", username)
+        router.push("/chat")
+      } else {
+        setError("Invalid credentials")
+      }
+    } catch (err) {
+      setError("Login failed. Please try again.")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="h-screen relative overflow-hidden bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-blue-900/20 dark:to-purple-900/20">
+      <ParticlesBackground />
+      <CursorGlow />
+
+      {/* Theme Toggle */}
+      <div className="absolute top-4 right-4 z-20">
+        <ThemeToggle />
+      </div>
+
+      <div className="relative z-10 h-screen flex items-center justify-center p-4">
+        <div className="auth-container group">
+          <Card
+            className="w-full backdrop-blur-xl bg-white/10 dark:bg-gray-900/10 border border-white/20 dark:border-gray-700/20 shadow-2xl transition-all duration-300 hover:bg-white/15 dark:hover:bg-gray-900/15 hover:border-white/30 dark:hover:border-gray-600/30"
+            style={{ width: "360px" }}
+          >
+            <CardHeader className="space-y-3 text-center pb-4 pt-6">
+              <div className="mx-auto w-10 h-10 bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
+                <Bot className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <CardTitle className="text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                  Welcome Back
+                </CardTitle>
+                <CardDescription className="text-gray-600 dark:text-gray-300 mt-1 font-medium text-sm">
+                  Sign in to your RAG LLM account
+                </CardDescription>
+              </div>
+            </CardHeader>
+            <CardContent className="px-6 pb-6">
+              <form onSubmit={handleLogin} className="space-y-4">
+                <div className="space-y-1.5">
+                  <Label htmlFor="username" className="text-gray-700 dark:text-gray-200 font-medium text-sm">
+                    Username
+                  </Label>
+                  <div className="input-glow-container">
+                    <Input
+                      id="username"
+                      type="text"
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value)}
+                      required
+                      disabled={loading}
+                      placeholder="Enter your username"
+                      className="enhanced-input h-10"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="password" className="text-gray-700 dark:text-gray-200 font-medium text-sm">
+                    Password
+                  </Label>
+                  <div className="input-glow-container">
+                    <Input
+                      id="password"
+                      type="password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      required
+                      disabled={loading}
+                      placeholder="Enter your password"
+                      className="enhanced-input h-10"
+                    />
+                  </div>
+                </div>
+                {error && (
+                  <Alert variant="destructive" className="bg-red-500/10 border-red-500/20 backdrop-blur-sm py-2">
+                    <AlertDescription className="text-red-600 dark:text-red-400 font-medium text-sm">
+                      {error}
+                    </AlertDescription>
+                  </Alert>
+                )}
+                <Button
+                  type="submit"
+                  className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 transition-all duration-300 hover:shadow-lg hover:shadow-blue-500/25 font-medium py-2 h-10 mt-5"
+                  disabled={loading}
+                >
+                  {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Sign In
+                </Button>
+              </form>
+              <div className="mt-4 text-center text-sm">
+                <span className="text-gray-600 dark:text-gray-300">Don't have an account? </span>
+                <Link
+                  href="/register"
+                  className="text-blue-600 hover:text-blue-700 dark:text-blue-400 font-medium hover:underline transition-colors"
+                >
+                  Sign up
+                </Link>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </div>
+  )
+}
