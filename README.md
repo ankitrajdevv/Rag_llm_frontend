@@ -1,30 +1,61 @@
-# RAG LLM
+## 🚀 Quick Start
 
-*Automatically synced with your [v0.dev](https://v0.dev) deployments*
+### 1. Clone the Repository
 
-[![Deployed on Vercel](https://img.shields.io/badge/Deployed%20on-Vercel-black?style=for-the-badge&logo=vercel)](https://vercel.com/ankitdev/v0-rag-llm)
-[![Built with v0](https://img.shields.io/badge/Built%20with-v0.dev-black?style=for-the-badge)](https://v0.dev/chat/projects/ENIpVJi2YVo)
+\`\`\`bash
+git clone https://github.com/your-username/rag-llm-frontend.git
+cd rag-llm-frontend
+\`\`\`
 
-## Overview
+### 2. Install Dependencies
 
-This repository will stay in sync with your deployed chats on [v0.dev](https://v0.dev).
-Any changes you make to your deployed app will be automatically pushed to this repository from [v0.dev](https://v0.dev).
+\`\`\`bash
+npm install
+# or
+yarn install
+\`\`\`
 
-## Deployment
+### 3. Environment Setup
 
-Your project is live at:
+Create a `.env.local` file in the root directory:
 
-**[https://vercel.com/ankitdev/v0-rag-llm](https://vercel.com/ankitdev/v0-rag-llm)**
+\`\`\`env
+# Google AI API Key (Get from: https://ai.google.dev/)
+GOOGLE_API_KEY=your_google_ai_api_key_here
 
-## Build your app
+# MongoDB Connection (Get from: https://mongodb.com/atlas)
+MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/database_name
+MONGODB_DB=your_database_name
 
-Continue building your app on:
+# JWT Secret (Generate a random string)
+JWT_SECRET=your_super_secret_jwt_key_minimum_32_characters_long
 
-**[https://v0.dev/chat/projects/ENIpVJi2YVo](https://v0.dev/chat/projects/ENIpVJi2YVo)**
+# Next.js Auth (for production)
+NEXTAUTH_SECRET=your_nextauth_secret_key
+NEXTAUTH_URL=http://localhost:3000
+\`\`\`
 
-## How It Works
+### 4. Set Up MongoDB Atlas
 
-1. Create and modify your project using [v0.dev](https://v0.dev)
-2. Deploy your chats from the v0 interface
-3. Changes are automatically pushed to this repository
-4. Vercel deploys the latest version from this repository
+1. **Create Account**: Go to [MongoDB Atlas](https://mongodb.com/atlas)
+2. **Create Cluster**: Choose the free tier
+3. **Create Database User**: Add username/password
+4. **Whitelist IP**: Add your IP address (or 0.0.0.0/0 for development)
+5. **Get Connection String**: Copy the connection URI
+6. **Update .env.local**: Replace the MONGODB_URI with your connection string
+
+### 5. Get Google AI API Key
+
+1. **Visit**: [Google AI Studio](https://ai.google.dev/)
+2. **Create Project**: Set up a new project
+3. **Enable API**: Enable the Gemini API
+4. **Generate Key**: Create an API key
+5. **Update .env.local**: Add your API key
+
+### 6. Run the Development Server
+
+\`\`\`bash
+npm run dev
+# or
+yarn dev
+\`\`\`
