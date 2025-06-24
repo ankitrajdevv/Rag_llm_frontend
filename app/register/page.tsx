@@ -1,6 +1,7 @@
 "use client"
 
 import type React from "react"
+
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -13,11 +14,9 @@ import Link from "next/link"
 import { ParticlesBackground } from "@/components/particles-background"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { CursorGlow } from "@/components/cursor-glow"
-import { toast } from "sonner"
 
 export default function RegisterPage() {
   const [username, setUsername] = useState("")
-  const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
@@ -29,33 +28,23 @@ export default function RegisterPage() {
     setError("")
 
     try {
-      const response = await fetch("/api/auth/register", {
+      const response = await fetch("http://localhost:8000/register/", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ username, email, password }),
+        body: JSON.stringify({ username, password }),
       })
 
-      const data = await response.json()
-
       if (response.ok) {
-        // Store user data
-        localStorage.setItem("user", data.user.username)
-        localStorage.setItem("token", data.token)
-
-        // Show success message
-        toast.success("Registration successful!")
-
-        // Small delay to ensure localStorage is set, then redirect
-        setTimeout(() => {
-          router.push("/chat")
-        }, 100)
+        localStorage.setItem("user", username)
+        router.push("/chat")
       } else {
-        setError(data.error || "Registration failed")
+        const data = await response.json()
+        setError(data.detail || "Registration failed")
       }
     } catch (err) {
-      setError("Network error. Please try again.")
+      setError("Registration failed. Please try again.")
     } finally {
       setLoading(false)
     }
@@ -110,23 +99,6 @@ export default function RegisterPage() {
                   </div>
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="email" className="text-gray-700 dark:text-gray-200 font-medium text-sm">
-                    Email
-                  </Label>
-                  <div className="input-glow-container">
-                    <Input
-                      id="email"
-                      type="email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      required
-                      disabled={loading}
-                      placeholder="Enter your email"
-                      className="enhanced-input h-10"
-                    />
-                  </div>
-                </div>
-                <div className="space-y-1.5">
                   <Label htmlFor="password" className="text-gray-700 dark:text-gray-200 font-medium text-sm">
                     Password
                   </Label>
@@ -167,13 +139,6 @@ export default function RegisterPage() {
                 >
                   Sign in
                 </Link>
-              </div>
-
-              {/* Demo Instructions */}
-              <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
-                <p className="text-xs text-blue-700 dark:text-blue-300 text-center">
-                  <strong>Demo:</strong> Create any username and password to get started
-                </p>
               </div>
             </CardContent>
           </Card>

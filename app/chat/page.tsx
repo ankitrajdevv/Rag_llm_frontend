@@ -1,6 +1,7 @@
 "use client"
 
 import type React from "react"
+
 import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -34,18 +35,21 @@ export default function ChatPage() {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const scrollAreaRef = useRef<HTMLDivElement>(null)
 
+  // Temporarily comment out this authentication check for preview
+  // useEffect(() => {
+  //   const storedUser = localStorage.getItem("user")
+  //   if (!storedUser) {
+  //     router.push("/login")
+  //     return
+  //   }
+  //   setUser(storedUser)
+  //   fetchHistory(storedUser)
+  // }, [router])
+
+  // Add this instead for preview:
   useEffect(() => {
-    const storedUser = localStorage.getItem("user")
-    const token = localStorage.getItem("token")
-
-    if (!storedUser || !token) {
-      router.push("/login")
-      return
-    }
-
-    setUser(storedUser) // This will now show the actual username
-    loadChatHistory(storedUser) // Load chat history for this specific user
-  }, [router])
+    setUser("demo-user") // Set a demo user for preview
+  }, [])
 
   useEffect(() => {
     if (scrollAreaRef.current) {
@@ -53,22 +57,15 @@ export default function ChatPage() {
     }
   }, [chatHistory])
 
-  const loadChatHistory = async (username: string) => {
+  const fetchHistory = async (username: string) => {
     try {
-      const response = await fetch(`/api/chat/history?username=${username}`, {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
-        },
-      })
-
+      const response = await fetch(`http://localhost:8000/history/?username=${username}`)
       if (response.ok) {
         const data = await response.json()
-        setChatHistory(data.history || [])
-      } else {
-        console.error("Failed to load chat history:", response.status)
+        setChatHistory(data.history.reverse())
       }
-    } catch (error) {
-      console.error("Failed to load chat history:", error)
+    } catch (err) {
+      console.error("Failed to fetch history:", err)
     }
   }
 
@@ -80,15 +77,10 @@ export default function ChatPage() {
 
       const formData = new FormData()
       formData.append("file", selectedFile)
-      formData.append("username", user)
 
       try {
-        toast.info("Uploading PDF...")
-        const response = await fetch("/api/upload", {
+        const response = await fetch("http://localhost:8000/upload/", {
           method: "POST",
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
-          },
           body: formData,
         })
 
@@ -98,12 +90,10 @@ export default function ChatPage() {
           setIsPdfUploaded(true)
           toast.success("PDF uploaded successfully!")
         } else {
-          const errorData = await response.json()
-          throw new Error(errorData.error || "Upload failed")
+          toast.error("Failed to upload PDF")
         }
       } catch (error) {
-        toast.error(`Failed to upload PDF: ${error}`)
-        setIsPdfUploaded(false)
+        toast.error("Failed to upload PDF")
       }
     } else {
       toast.error("Please upload a valid PDF file")
@@ -119,18 +109,15 @@ export default function ChatPage() {
     const currentQuery = query
     setQuery("")
 
+    const formData = new FormData()
+    formData.append("filename", filename)
+    formData.append("query", currentQuery)
+    formData.append("username", user)
+
     try {
-      const response = await fetch("/api/chat/ask", {
+      const response = await fetch("http://localhost:8000/ask/", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
-        },
-        body: JSON.stringify({
-          filename: filename,
-          query: currentQuery,
-          username: user,
-        }),
+        body: formData,
       })
 
       if (response.ok) {
@@ -144,15 +131,14 @@ export default function ChatPage() {
           return updated
         })
       } else {
-        const errorData = await response.json()
-        throw new Error(errorData.error || "Failed to get answer")
+        throw new Error("Failed to get answer")
       }
     } catch (error) {
       setChatHistory((prev) => {
         const updated = [...prev]
         updated[currentIndex] = {
           question: currentQuery,
-          answer: `Error: ${error}. Please try again.`,
+          answer: "Error fetching answer.",
         }
         return updated
       })
@@ -191,7 +177,6 @@ export default function ChatPage() {
 
   const handleLogout = () => {
     localStorage.removeItem("user")
-    localStorage.removeItem("token")
     router.push("/login")
   }
 
@@ -202,24 +187,8 @@ export default function ChatPage() {
     }
   }
 
-  const clearChat = async () => {
-    try {
-      const response = await fetch("/api/chat/clear", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
-        },
-        body: JSON.stringify({ username: user }),
-      })
-
-      if (response.ok) {
-        setChatHistory([])
-        toast.success("Chat history cleared!")
-      }
-    } catch (error) {
-      toast.error("Failed to clear chat history")
-    }
+  const clearChat = () => {
+    setChatHistory([])
   }
 
   return (
@@ -238,7 +207,7 @@ export default function ChatPage() {
 
             {/* Right side */}
             <div className="flex items-center space-x-4">
-              <Button variant="ghost" size="sm" onClick={() => router.push("/")}>
+              <Button variant="ghost" size="sm">
                 <Home className="w-4 h-4 mr-2" />
                 Home
               </Button>
@@ -250,7 +219,7 @@ export default function ChatPage() {
               </Button>
 
               <div className="flex items-center space-x-2">
-                <span className="text-sm text-gray-600 dark:text-gray-300">Welcome, {user}</span>
+                <span className="text-sm text-gray-600 dark:text-gray-300">{user}</span>
                 <Button variant="ghost" size="sm" onClick={handleLogout}>
                   <LogOut className="w-4 h-4" />
                 </Button>
@@ -270,19 +239,6 @@ export default function ChatPage() {
           <p className="text-lg text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
             Upload your documents and ask questions. Get instant answers powered by AI with accurate source references.
           </p>
-        </div>
-
-        {/* Backend Status */}
-        <div className="mb-8 p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800 max-w-4xl mx-auto">
-          <div className="flex items-center space-x-2">
-            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-            <div>
-              <p className="text-green-800 dark:text-green-200 font-medium">✅ MongoDB Connected & Working</p>
-              <p className="text-green-700 dark:text-green-300 text-sm">
-                Full-stack functionality with MongoDB, authentication, file upload, and persistent chat history.
-              </p>
-            </div>
-          </div>
         </div>
 
         {/* Two Column Layout */}
@@ -343,12 +299,12 @@ export default function ChatPage() {
                   </Button>
                 </div>
 
-                <div className="flex items-center mt-2 text-sm">
-                  <span
-                    className={`w-2 h-2 rounded-full mr-2 ${isPdfUploaded ? "bg-green-500" : "bg-orange-500"}`}
-                  ></span>
-                  {isPdfUploaded ? `Document: ${filename}` : "Upload a PDF to get started"}
-                </div>
+                {!isPdfUploaded && (
+                  <div className="flex items-center mt-2 text-sm text-red-600 dark:text-red-400">
+                    <span className="w-2 h-2 bg-red-500 rounded-full mr-2"></span>
+                    No documents available
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -372,8 +328,8 @@ export default function ChatPage() {
                         <p className="text-sm font-medium text-gray-900 dark:text-white mb-1">AI Assistant</p>
                         <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3">
                           <p className="text-sm text-gray-700 dark:text-gray-300">
-                            Hi there! I'm your document assistant with MongoDB integration. Upload documents and ask me
-                            questions about them. I'll provide intelligent answers with source references.
+                            Hi there! I'm your document assistant. Upload documents and ask me questions about them.
+                            I'll provide answers with references to your source material.
                           </p>
                         </div>
                       </div>
