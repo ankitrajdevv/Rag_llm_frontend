@@ -1,7 +1,6 @@
 "use client"
 
 import type React from "react"
-
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -14,6 +13,7 @@ import Link from "next/link"
 import { ParticlesBackground } from "@/components/particles-background"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { CursorGlow } from "@/components/cursor-glow"
+import { toast } from "sonner"
 
 export default function LoginPage() {
   const [username, setUsername] = useState("")
@@ -28,7 +28,7 @@ export default function LoginPage() {
     setError("")
 
     try {
-      const response = await fetch("http://localhost:8000/login/", {
+      const response = await fetch("/api/auth/login", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -36,14 +36,25 @@ export default function LoginPage() {
         body: JSON.stringify({ username, password }),
       })
 
+      const data = await response.json()
+
       if (response.ok) {
-        localStorage.setItem("user", username)
-        router.push("/chat")
+        // Store user data
+        localStorage.setItem("user", data.user.username)
+        localStorage.setItem("token", data.token)
+
+        // Show success message
+        toast.success("Login successful!")
+
+        // Small delay to ensure localStorage is set, then redirect
+        setTimeout(() => {
+          router.push("/chat")
+        }, 100)
       } else {
-        setError("Invalid credentials")
+        setError(data.error || "Login failed")
       }
     } catch (err) {
-      setError("Login failed. Please try again.")
+      setError("Network error. Please try again.")
     } finally {
       setLoading(false)
     }
@@ -138,6 +149,13 @@ export default function LoginPage() {
                 >
                   Sign up
                 </Link>
+              </div>
+
+              {/* Demo Instructions */}
+              <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                <p className="text-xs text-blue-700 dark:text-blue-300 text-center">
+                  <strong>Try:</strong> username: "demo", password: "password" or create a new account
+                </p>
               </div>
             </CardContent>
           </Card>
