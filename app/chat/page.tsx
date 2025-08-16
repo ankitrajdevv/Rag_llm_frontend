@@ -54,7 +54,7 @@ export default function ChatPage() {
 
   const fetchHistory = async (username: string) => {
     try {
-      const response = await fetch(`http://localhost:8000/history/?username=${username}`)
+      const response = await fetch(`https://rag-llm-backend.onrender.com/history/?username=${username}`)
       if (response.ok) {
         const data = await response.json()
         setChatHistory(data.history.reverse())
@@ -74,7 +74,7 @@ export default function ChatPage() {
       formData.append("file", selectedFile)
 
       try {
-        const response = await fetch("http://localhost:8000/upload/", {
+        const response = await fetch("https://rag-llm-backend.onrender.com/upload/", {
           method: "POST",
           body: formData,
         })
@@ -110,7 +110,7 @@ export default function ChatPage() {
     formData.append("username", user)
 
     try {
-      const response = await fetch("http://localhost:8000/ask/", {
+      const response = await fetch("https://rag-llm-backend.onrender.com/ask/", {
         method: "POST",
         body: formData,
       })
