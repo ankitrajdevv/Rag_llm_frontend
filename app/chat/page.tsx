@@ -35,21 +35,16 @@ export default function ChatPage() {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const scrollAreaRef = useRef<HTMLDivElement>(null)
 
-  // Temporarily comment out this authentication check for preview
-  // useEffect(() => {
-  //   const storedUser = localStorage.getItem("user")
-  //   if (!storedUser) {
-  //     router.push("/login")
-  //     return
-  //   }
-  //   setUser(storedUser)
-  //   fetchHistory(storedUser)
-  // }, [router])
-
-  // Add this instead for preview:
   useEffect(() => {
-    setUser("demo-user") // Set a demo user for preview
-  }, [])
+    const storedUser = localStorage.getItem("user")
+    if (!storedUser) {
+      router.push("/login")
+      return
+    }
+    setUser(storedUser)
+    fetchHistory(storedUser)
+  }, [router])
+
 
   useEffect(() => {
     if (scrollAreaRef.current) {
@@ -256,7 +251,7 @@ export default function ChatPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="flex-1 flex flex-col">
-              <ScrollArea className="flex-1 pr-4" ref={scrollAreaRef}>
+              <ScrollArea className="flex-1 pr-4 overflow-y-auto" ref={scrollAreaRef}>
                 {chatHistory.length === 0 ? (
                   <div className="flex flex-col items-center justify-center h-full text-center py-12">
                     <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center mb-4">
@@ -315,7 +310,7 @@ export default function ChatPage() {
               <CardTitle className="text-blue-600 dark:text-blue-400">AI Answers</CardTitle>
             </CardHeader>
             <CardContent className="flex-1 flex flex-col">
-              <ScrollArea className="flex-1 pr-4">
+              <ScrollArea className="flex-1 pr-4 overflow-y-auto">
                 {chatHistory.length === 0 ? (
                   <div className="flex flex-col items-start space-y-4 py-4">
                     <div className="flex items-start space-x-3">
