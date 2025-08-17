@@ -251,7 +251,7 @@ export default function ChatPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="flex-1 flex flex-col">
-              <ScrollArea className="flex-1 pr-4 overflow-y-auto max-h-[480px]" ref={scrollAreaRef}>
+              <ScrollArea className="flex-1 pr-4 overflow-y-auto max-h-[400px]" ref={scrollAreaRef}>
                 {chatHistory.length === 0 ? (
                   <div className="flex flex-col items-center justify-center h-full text-center py-12">
                     <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center mb-4">
