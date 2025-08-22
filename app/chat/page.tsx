@@ -35,6 +35,7 @@ export default function ChatPage() {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const scrollAreaRef = useRef<HTMLDivElement>(null)
   const router = useRouter()
+  const recognitionRef = useRef<any>(null);
 
   useEffect(() => {
     const storedUser = localStorage.getItem("user")
@@ -52,6 +53,28 @@ export default function ChatPage() {
       scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight
     }
   }, [chatHistory])
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && 'webkitSpeechRecognition' in window) {
+      const SpeechRecognition = (window as any).webkitSpeechRecognition;
+      recognitionRef.current = new SpeechRecognition();
+      recognitionRef.current.continuous = false;
+      recognitionRef.current.interimResults = false;
+      recognitionRef.current.lang = 'en-US';
+      recognitionRef.current.onresult = (event: any) => {
+        const transcript = event.results[0][0].transcript;
+        setQuery(transcript);
+        setListening(false);
+      };
+      recognitionRef.current.onerror = () => {
+        setListening(false);
+        toast.error("Mic error or permission denied");
+      };
+      recognitionRef.current.onend = () => {
+        setListening(false);
+      };
+    }
+  }, []);
 
   const fetchHistory = async (username: string) => {
     try {
@@ -208,8 +231,12 @@ export default function ChatPage() {
 
   const stopSpeech = () => {
     if ("speechSynthesis" in window) {
-      window.speechSynthesis.cancel()
-      setSpeakingIndex(null)
+      window.speechSynthesis.cancel();
+      setSpeakingIndex(null);
+    }
+    if (recognitionRef.current) {
+      recognitionRef.current.stop();
+      setListening(false);
     }
   }
 
@@ -367,7 +394,15 @@ export default function ChatPage() {
                     <Send className="w-4 h-4" />
                   </Button>
                   <Button
-                    onClick={listening ? stopSpeech : () => setListening(true)}
+                    onClick={listening ? stopSpeech : () => {
+                      setListening(true);
+                      if (recognitionRef.current) {
+                        recognitionRef.current.start();
+                      } else {
+                        toast.error("Speech recognition not supported in this browser");
+                        setListening(false);
+                      }
+                    }}
                     disabled={loading}
                     size="icon"
                     variant={listening ? "destructive" : "outline"}
