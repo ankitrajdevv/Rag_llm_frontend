@@ -55,7 +55,7 @@ export default function ChatPage() {
 
   const fetchHistory = async (username: string) => {
     try {
-      const response = await fetch(`http://localhost:8000/history/?username=${username}`)
+  const response = await fetch(`https://rag-llm-backend.onrender.com/history/?username=${username}`)
       if (response.ok) {
         const data = await response.json()
         setChatHistory(data.history.reverse())
@@ -67,7 +67,7 @@ export default function ChatPage() {
 
   const fetchPDFList = async (username: string) => {
     try {
-      const response = await fetch(`http://localhost:8000/list_pdfs/?username=${username}`)
+  const response = await fetch(`https://rag-llm-backend.onrender.com/list_pdfs/?username=${username}`)
       if (response.ok) {
         const data = await response.json()
         setPdfList(data.pdfs)
@@ -90,7 +90,7 @@ export default function ChatPage() {
       formData.append("username", user)
 
       try {
-        const response = await fetch("http://localhost:8000/upload/", {
+  const response = await fetch("https://rag-llm-backend.onrender.com/upload/", {
           method: "POST",
           body: formData,
         })
@@ -117,7 +117,7 @@ export default function ChatPage() {
     formData.append("filename", pdf);
     formData.append("username", user);
     try {
-      const response = await fetch("http://localhost:8000/delete_pdf/", {
+  const response = await fetch("https://rag-llm-backend.onrender.com/delete_pdf/", {
         method: "POST",
         body: formData,
       });
@@ -153,7 +153,7 @@ export default function ChatPage() {
     formData.append("username", user);
 
     try {
-      const response = await fetch("http://localhost:8000/ask/", {
+  const response = await fetch("https://rag-llm-backend.onrender.com/ask/", {
         method: "POST",
         body: formData,
       });
