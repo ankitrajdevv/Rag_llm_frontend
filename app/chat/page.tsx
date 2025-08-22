@@ -1,7 +1,6 @@
 "use client"
 
 import type React from "react"
-
 import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -10,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Separator } from "@/components/ui/separator"
-import { Upload, Send, Copy, Volume2, VolumeX, LogOut, FileText, Bot, Home, Info } from "lucide-react"
+import { Upload, Send, Copy, Volume2, VolumeX, LogOut, FileText, Bot, Home, Info, Mic, MicOff } from "lucide-react"
 import { toast } from "sonner"
 import { ThemeToggle } from "@/components/theme-toggle"
 
@@ -30,10 +29,12 @@ export default function ChatPage() {
   const [isPdfUploaded, setIsPdfUploaded] = useState(false)
   const [speakingIndex, setSpeakingIndex] = useState<number | null>(null)
   const [loading, setLoading] = useState(false)
-
-  const router = useRouter()
+  const [pdfList, setPdfList] = useState<string[]>([])
+  const [selectedPDFs, setSelectedPDFs] = useState<string[]>([])
+  const [listening, setListening] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const scrollAreaRef = useRef<HTMLDivElement>(null)
+  const router = useRouter()
 
   useEffect(() => {
     const storedUser = localStorage.getItem("user")
@@ -43,8 +44,8 @@ export default function ChatPage() {
     }
     setUser(storedUser)
     fetchHistory(storedUser)
+    fetchPDFList(storedUser)
   }, [router])
-
 
   useEffect(() => {
     if (scrollAreaRef.current) {
@@ -54,13 +55,27 @@ export default function ChatPage() {
 
   const fetchHistory = async (username: string) => {
     try {
-      const response = await fetch(`https://rag-llm-backend.onrender.com/history/?username=${username}`)
+      const response = await fetch(`http://localhost:8000/history/?username=${username}`)
       if (response.ok) {
         const data = await response.json()
         setChatHistory(data.history.reverse())
       }
     } catch (err) {
       console.error("Failed to fetch history:", err)
+    }
+  }
+
+  const fetchPDFList = async (username: string) => {
+    try {
+      const response = await fetch(`http://localhost:8000/list_pdfs/?username=${username}`)
+      if (response.ok) {
+        const data = await response.json()
+        setPdfList(data.pdfs)
+        // Auto-select all PDFs after fetching
+        setSelectedPDFs(data.pdfs)
+      }
+    } catch (err) {
+      console.error("Failed to fetch PDF list:", err)
     }
   }
 
@@ -72,9 +87,10 @@ export default function ChatPage() {
 
       const formData = new FormData()
       formData.append("file", selectedFile)
+      formData.append("username", user)
 
       try {
-        const response = await fetch("https://rag-llm-backend.onrender.com/upload/", {
+        const response = await fetch("http://localhost:8000/upload/", {
           method: "POST",
           body: formData,
         })
@@ -84,6 +100,7 @@ export default function ChatPage() {
           setFilename(data.filename)
           setIsPdfUploaded(true)
           toast.success("PDF uploaded successfully!")
+          fetchPDFList(user)
         } else {
           toast.error("Failed to upload PDF")
         }
@@ -95,53 +112,79 @@ export default function ChatPage() {
     }
   }
 
-  const askQuestion = async () => {
-    if (!query.trim()) return
-
-    setLoading(true)
-    const currentIndex = chatHistory.length
-    setChatHistory((prev) => [...prev, { question: query, answer: null }])
-    const currentQuery = query
-    setQuery("")
-
-    const formData = new FormData()
-    formData.append("filename", filename)
-    formData.append("query", currentQuery)
-    formData.append("username", user)
-
+  const handleDeletePDF = async (pdf: string) => {
+    const formData = new FormData();
+    formData.append("filename", pdf);
+    formData.append("username", user);
     try {
-      const response = await fetch("https://rag-llm-backend.onrender.com/ask/", {
+      const response = await fetch("http://localhost:8000/delete_pdf/", {
         method: "POST",
         body: formData,
-      })
+      });
+      if (response.ok) {
+        toast.success("PDF deleted successfully!");
+        fetchPDFList(user);
+      } else {
+        toast.error("Failed to delete PDF");
+      }
+    } catch (err) {
+      toast.error("Failed to delete PDF");
+    }
+  }
+
+  const handlePDFSelect = (pdf: string) => {
+    setSelectedPDFs((prev) =>
+      prev.includes(pdf) ? prev.filter((f) => f !== pdf) : [...prev, pdf]
+    )
+  }
+
+  const askQuestion = async () => {
+    if (!query.trim() || selectedPDFs.length === 0) return;
+
+    setLoading(true);
+    const currentIndex = chatHistory.length;
+    setChatHistory((prev) => [...prev, { question: query, answer: null }]);
+    const currentQuery = query;
+    setQuery("");
+
+    const formData = new FormData();
+    formData.append("filenames", JSON.stringify(selectedPDFs)); // send as JSON string for backend
+    formData.append("query", currentQuery);
+    formData.append("username", user);
+
+    try {
+      const response = await fetch("http://localhost:8000/ask/", {
+        method: "POST",
+        body: formData,
+      });
 
       if (response.ok) {
-        const data = await response.json()
+        const data = await response.json();
         setChatHistory((prev) => {
-          const updated = [...prev]
+          const updated = [...prev];
           updated[currentIndex] = {
             question: currentQuery,
             answer: data.answer,
-          }
-          return updated
-        })
+          };
+          return updated;
+        });
       } else {
-        throw new Error("Failed to get answer")
+        throw new Error("Failed to get answer");
       }
     } catch (error) {
       setChatHistory((prev) => {
-        const updated = [...prev]
+        const updated = [...prev];
         updated[currentIndex] = {
           question: currentQuery,
           answer: "Error fetching answer.",
-        }
-        return updated
-      })
-      toast.error("Failed to get answer")
+        };
+        return updated;
+      });
+      toast.error("Failed to get answer");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  }  
 
   const handleCopy = (text: string) => {
     navigator.clipboard.writeText(text)
@@ -199,27 +242,23 @@ export default function ChatPage() {
               </div>
               <h1 className="text-xl font-bold text-gray-900 dark:text-white">RAG LLM</h1>
             </div>
-
             {/* Right side */}
             <div className="flex items-center space-x-4">
               <Button variant="ghost" size="sm">
                 <Home className="w-4 h-4 mr-2" />
                 Home
               </Button>
-
               <input ref={fileInputRef} type="file" accept=".pdf" onChange={handleFileChange} className="hidden" />
               <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>
                 <Upload className="w-4 h-4 mr-2" />
                 Upload Documents
               </Button>
-
               <div className="flex items-center space-x-2">
                 <span className="text-sm text-gray-600 dark:text-gray-300">{user}</span>
                 <Button variant="ghost" size="sm" onClick={handleLogout}>
                   <LogOut className="w-4 h-4" />
                 </Button>
               </div>
-
               <ThemeToggle />
             </div>
           </div>
@@ -232,8 +271,43 @@ export default function ChatPage() {
         <div className="text-center mb-12">
           <h1 className="text-4xl font-bold text-blue-600 dark:text-blue-400 mb-4">Business Document Intelligence</h1>
           <p className="text-lg text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
-            Upload your documents and ask questions. Get instant answers powered by AI with accurate source references.
+            Upload your documents and ask questions. Get instant answers powered by AI.
           </p>
+        </div>
+
+        {/* Uploaded PDFs Preview Box with delete button */}
+        <div className="max-w-3xl mx-auto mb-8">
+          <Card className="bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700">
+            <CardHeader>
+              <CardTitle className="text-blue-600 dark:text-blue-400 text-base">Uploaded Documents</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ul className="list-disc pl-6 flex flex-col gap-2">
+                {pdfList.map((pdf) => (
+                  <li
+                    key={pdf}
+                    className="flex items-center justify-between text-sm text-gray-200"
+                  >
+                    <span
+                      className="cursor-pointer truncate max-w-[220px] font-medium text-gray-200"
+                      onClick={() => handlePDFSelect(pdf)}
+                      title={pdf}
+                      style={{ overflowWrap: "anywhere" }}
+                    >
+                      {pdf}
+                    </span>
+                    <button
+                      className="ml-2 text-red-500 hover:text-red-700"
+                      onClick={() => handleDeletePDF(pdf)}
+                      title="Delete PDF"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 7h12M9 7V5a3 3 0 013-3v0a3 3 0 013 3v2m-7 0h8m-8 0v12a2 2 0 002 2h4a2 2 0 002-2V7m-8 0h8" /></svg>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </CardContent>
+          </Card>
         </div>
 
         {/* Two Column Layout */}
@@ -275,7 +349,7 @@ export default function ChatPage() {
 
               {/* Input Area */}
               <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-                <div className="flex space-x-2">
+                <div className="flex space-x-2 items-center">
                   <Input
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
@@ -286,15 +360,30 @@ export default function ChatPage() {
                   />
                   <Button
                     onClick={askQuestion}
-                    disabled={!query.trim() || loading}
+                    disabled={!query.trim() || loading || selectedPDFs.length === 0}
                     size="icon"
                     className="bg-blue-600 hover:bg-blue-700"
                   >
                     <Send className="w-4 h-4" />
                   </Button>
+                  <Button
+                    onClick={listening ? stopSpeech : () => setListening(true)}
+                    disabled={loading}
+                    size="icon"
+                    variant={listening ? "destructive" : "outline"}
+                    className={listening ? "animate-pulse border-red-500" : ""}
+                    aria-label={listening ? "Stop voice input" : "Start voice input"}
+                  >
+                    {listening ? <MicOff className="w-4 h-4 text-red-600" /> : <Mic className="w-4 h-4" />}
+                  </Button>
+                  {listening && (
+                    <span className="ml-2 flex items-center text-red-600 animate-pulse font-semibold">
+                      <Mic className="w-4 h-4 mr-1" /> Listening...
+                    </span>
+                  )}
                 </div>
 
-                {!isPdfUploaded && (
+                {pdfList.length === 0 && (
                   <div className="flex items-center mt-2 text-sm text-red-600 dark:text-red-400">
                     <span className="w-2 h-2 bg-red-500 rounded-full mr-2"></span>
                     No documents available
@@ -324,7 +413,6 @@ export default function ChatPage() {
                         <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3">
                           <p className="text-sm text-gray-700 dark:text-gray-300">
                             Hi there! I'm your document assistant. Upload documents and ask me questions about them.
-                            I'll provide answers with references to your source material.
                           </p>
                         </div>
                       </div>
@@ -395,37 +483,9 @@ export default function ChatPage() {
                     ))}
                   </div>
                 )}
-              </ScrollArea>
+                </ScrollArea>
             </CardContent>
           </Card>
-        </div>
-
-        {/* Bottom Section */}
-        <div className="text-center mt-12">
-          <h2 className="text-2xl font-bold text-blue-600 dark:text-blue-400 mb-4">Powerful Document Intelligence</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto">
-            <div className="text-center">
-              <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center mx-auto mb-3">
-                <Upload className="w-6 h-6 text-blue-600 dark:text-blue-400" />
-              </div>
-              <h3 className="font-medium text-gray-900 dark:text-white mb-2">Upload Documents</h3>
-              <p className="text-sm text-gray-600 dark:text-gray-400">Easily upload PDF documents for analysis</p>
-            </div>
-            <div className="text-center">
-              <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center mx-auto mb-3">
-                <Bot className="w-6 h-6 text-blue-600 dark:text-blue-400" />
-              </div>
-              <h3 className="font-medium text-gray-900 dark:text-white mb-2">AI-Powered Analysis</h3>
-              <p className="text-sm text-gray-600 dark:text-gray-400">Get intelligent answers from your documents</p>
-            </div>
-            <div className="text-center">
-              <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center mx-auto mb-3">
-                <FileText className="w-6 h-6 text-blue-600 dark:text-blue-400" />
-              </div>
-              <h3 className="font-medium text-gray-900 dark:text-white mb-2">Source References</h3>
-              <p className="text-sm text-gray-600 dark:text-gray-400">Answers include accurate source citations</p>
-            </div>
-          </div>
         </div>
       </main>
     </div>
