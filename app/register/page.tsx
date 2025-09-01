@@ -28,7 +28,7 @@ export default function RegisterPage() {
     setError("")
 
     try {
-      const response = await fetch("https://rag-llm-backend.onrender.com/register/", {
+  const response = await fetch("https://rag-llm-backend.onrender.com/register/", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

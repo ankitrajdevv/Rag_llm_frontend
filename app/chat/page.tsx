@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Separator } from "@/components/ui/separator"
-import { Upload, Send, Copy, Volume2, VolumeX, LogOut, FileText, Bot, Home, Info } from "lucide-react"
+import { Upload, Send, Copy, Volume2, VolumeX, LogOut, FileText, Bot, Home, Info, Mic, MicOff, Trash2 } from "lucide-react"
 import { toast } from "sonner"
 import { ThemeToggle } from "@/components/theme-toggle"
 
@@ -28,8 +28,64 @@ export default function ChatPage() {
   const [query, setQuery] = useState("")
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([])
   const [isPdfUploaded, setIsPdfUploaded] = useState(false)
+  const [pdfList, setPdfList] = useState<string[]>([])
+  // Delete PDF
+  const handleDeletePdf = async (filename: string) => {
+    try {
+      const formData = new FormData()
+      formData.append("filename", filename)
+      formData.append("username", user)
+  const response = await fetch("https://rag-llm-backend.onrender.com/delete_pdf/", {
+        method: "POST",
+        body: formData,
+      })
+      if (response.ok) {
+        setPdfList(prev => prev.filter(f => f !== filename))
+        toast.success("PDF deleted successfully!")
+      } else {
+        toast.error("Failed to delete PDF")
+      }
+    } catch {
+      toast.error("Failed to delete PDF")
+    }
+  }
   const [speakingIndex, setSpeakingIndex] = useState<number | null>(null)
   const [loading, setLoading] = useState(false)
+  const [listening, setListening] = useState(false)
+  // Voice recognition
+  const recognitionRef = useRef<any>(null)
+
+  const startListening = () => {
+    if (!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
+      toast.error('Speech recognition not supported in your browser')
+      return
+    }
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
+    const recognition = new SpeechRecognition()
+    recognition.lang = 'en-US'
+    recognition.interimResults = false
+    recognition.maxAlternatives = 1
+    recognition.onstart = () => setListening(true)
+    recognition.onend = () => setListening(false)
+    recognition.onerror = (event: any) => {
+      setListening(false)
+      toast.error('Voice recognition error')
+    }
+    recognition.onresult = (event: any) => {
+      if (event.results && event.results[0] && event.results[0][0]) {
+        setQuery(event.results[0][0].transcript)
+      }
+    }
+    recognitionRef.current = recognition
+    recognition.start()
+  }
+
+  const stopListening = () => {
+    if (recognitionRef.current) {
+      recognitionRef.current.stop()
+      setListening(false)
+    }
+  }
 
   const router = useRouter()
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -43,7 +99,22 @@ export default function ChatPage() {
     }
     setUser(storedUser)
     fetchHistory(storedUser)
+    fetchPdfList(storedUser)
   }, [router])
+  // Fetch list of PDFs for user
+  const fetchPdfList = async (username: string) => {
+    try {
+  const response = await fetch(`https://rag-llm-backend.onrender.com/list_pdfs/?username=${username}`)
+      if (response.ok) {
+        const data = await response.json()
+        setPdfList(data.pdfs || [])
+        setIsPdfUploaded((data.pdfs || []).length > 0)
+      }
+    } catch (err) {
+      setPdfList([])
+      setIsPdfUploaded(false)
+    }
+  }
 
 
   useEffect(() => {
@@ -54,7 +125,7 @@ export default function ChatPage() {
 
   const fetchHistory = async (username: string) => {
     try {
-      const response = await fetch(`https://rag-llm-backend.onrender.com/history/?username=${username}`)
+  const response = await fetch(`https://rag-llm-backend.onrender.com/history/?username=${username}`)
       if (response.ok) {
         const data = await response.json()
         setChatHistory(data.history.reverse())
@@ -72,9 +143,10 @@ export default function ChatPage() {
 
       const formData = new FormData()
       formData.append("file", selectedFile)
+      formData.append("username", user)
 
       try {
-        const response = await fetch("https://rag-llm-backend.onrender.com/upload/", {
+  const response = await fetch("https://rag-llm-backend.onrender.com/upload/", {
           method: "POST",
           body: formData,
         })
@@ -82,6 +154,7 @@ export default function ChatPage() {
         if (response.ok) {
           const data = await response.json()
           setFilename(data.filename)
+          fetchPdfList(user)
           setIsPdfUploaded(true)
           toast.success("PDF uploaded successfully!")
         } else {
@@ -96,7 +169,12 @@ export default function ChatPage() {
   }
 
   const askQuestion = async () => {
-    if (!query.trim()) return
+    if (!query.trim() || !isPdfUploaded || pdfList.length === 0) {
+      if (!isPdfUploaded || pdfList.length === 0) {
+        toast.error("Please upload at least one PDF before asking questions.")
+      }
+      return
+    }
 
     setLoading(true)
     const currentIndex = chatHistory.length
@@ -105,12 +183,13 @@ export default function ChatPage() {
     setQuery("")
 
     const formData = new FormData()
-    formData.append("filename", filename)
+    // Pass all filenames as a JSON string
+    formData.append("filenames", JSON.stringify(pdfList))
     formData.append("query", currentQuery)
     formData.append("username", user)
 
     try {
-      const response = await fetch("https://rag-llm-backend.onrender.com/ask/", {
+  const response = await fetch("https://rag-llm-backend.onrender.com/ask/", {
         method: "POST",
         body: formData,
       })
@@ -236,6 +315,35 @@ export default function ChatPage() {
           </p>
         </div>
 
+        {/* Uploaded PDFs Preview Box with delete button */}
+        <div className="max-w-3xl mx-auto mb-8">
+          <Card className="bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700">
+            <CardHeader>
+              <CardTitle className="text-blue-600 dark:text-blue-400 text-base">Uploaded Documents</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {pdfList.length === 0 ? (
+                <div className="text-sm text-gray-500 dark:text-gray-400">No PDFs uploaded yet.</div>
+              ) : (
+                <ul className="pl-0">
+                  {pdfList.map((pdf, idx) => (
+                    <li key={idx} className="flex items-center justify-between py-1 text-sm text-gray-800 dark:text-gray-200 border-b border-gray-200 dark:border-gray-700">
+                      <span>{pdf}</span>
+                      <button
+                        onClick={() => handleDeletePdf(pdf)}
+                        className="ml-2 text-red-600 hover:text-red-800"
+                        title="Delete PDF"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
         {/* Two Column Layout */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 max-w-6xl mx-auto">
           {/* Your Questions Column */}
@@ -275,7 +383,7 @@ export default function ChatPage() {
 
               {/* Input Area */}
               <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-                <div className="flex space-x-2">
+                <div className="flex space-x-2 items-center">
                   <Input
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
@@ -292,6 +400,21 @@ export default function ChatPage() {
                   >
                     <Send className="w-4 h-4" />
                   </Button>
+                  <Button
+                    onClick={listening ? stopListening : startListening}
+                    disabled={loading}
+                    size="icon"
+                    variant={listening ? "destructive" : "outline"}
+                    className={listening ? "animate-pulse border-red-500" : ""}
+                    aria-label={listening ? "Stop voice input" : "Start voice input"}
+                  >
+                    {listening ? <MicOff className="w-4 h-4 text-red-600" /> : <Mic className="w-4 h-4" />}
+                  </Button>
+                  {listening && (
+                    <span className="ml-2 flex items-center text-red-600 animate-pulse font-semibold">
+                      <Mic className="w-4 h-4 mr-1" /> Listening...
+                    </span>
+                  )}
                 </div>
 
                 {!isPdfUploaded && (
@@ -427,7 +550,9 @@ export default function ChatPage() {
             </div>
           </div>
         </div>
+
       </main>
     </div>
   )
 }
+
